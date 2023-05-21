@@ -4,50 +4,49 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { colors } from '../theme'
 import randomImage from '../assets/images/randomImage'
 import EmptyList from '../components/emptyList'
-import { useNavigation } from '@react-navigation/native'
-
-const items = [
-  {
-    id: 1,
-    place: 'New York',
-    country: 'USA',
-  },
-  {
-    id: 2,
-    place: 'Paris',
-    country: 'France',
-  },
-  {
-    id: 3,
-    place: 'London',
-    country: 'UK',
-  },
-  {
-    id: 4,
-    place: 'Tokyo',
-    country: 'Japan',
-  },
-  {
-    id: 5,
-    place: 'Jakarta',
-    country: 'Indonesia',
-  },
-  {
-    id: 6,
-    place: 'Seoul',
-    country: 'South Korea',
-  },
-]
+import { useIsFocused, useNavigation } from '@react-navigation/native'
+import { signOut } from 'firebase/auth'
+import { auth, tripsRef } from '../config/firebase'
+import { useSelector } from 'react-redux'
+import { getDocs, query, where } from 'firebase/firestore'
+import { useEffect } from 'react'
+import { useState } from 'react'
 
 export default function HomeScreen() {
   const navigation = useNavigation();
+
+  const { user } = useSelector(state => state.user);
+  const [trips, setTrips] = useState([]);
+
+  const isFocused = useIsFocused();
+
+  const fetchTrips = async () => {
+    const q = query(tripsRef, where('userId', '==', user.uid));
+    const querySnapshot = await getDocs(q);
+    let data = [];
+    querySnapshot.forEach((doc) => {
+      // console.log(doc.id, ' => ', doc.data());
+      data.push({...doc.data(), id: doc.id});
+    });
+    setTrips(data);
+  }
+
+  useEffect(() => {
+    if (isFocused) {
+      fetchTrips();
+    }
+  }, [isFocused]);
+
+  const handleLogout = async () => {
+    await signOut(auth);
+  }
 
   return (
     <SafeAreaView className="flex-1">
       <View className="flex-row justify-between items-center p-4">
         <Text className={`${colors.heading} font-bold text-3xl shadow-sm`}>Expensify</Text>
         <TouchableOpacity className="py-2 px-3 bg-white border border-gray-200 rounded-md">
-          <Text className={colors.heading}>Logout</Text>
+          <Text onPress={handleLogout} className={colors.heading}>Logout</Text>
         </TouchableOpacity>
       </View>
       <View className="flex-row justify-center items-center bg-blue-200 rounded-md mx-4 mb-4">
@@ -62,7 +61,7 @@ export default function HomeScreen() {
         </View>
         <View style={{height: 460}}>
           <FlatList 
-            data={items}
+            data={trips}
             numColumns={2}
             ListEmptyComponent={<EmptyList message="You haven't recorded any trips yet" />}
             keyExtractor={(item) => item.id}
@@ -71,7 +70,7 @@ export default function HomeScreen() {
             className=""
             renderItem={({item}) => {
               return (
-                <TouchableOpacity onPress={() => navigation.navigate('TripExpenses')} className="bg-white p-3 rounded-md mb-5 shadow-sm">
+                <TouchableOpacity onPress={() => navigation.navigate('TripExpenses', {...item})} className="bg-white p-3 rounded-md mb-5 shadow-sm">
                   <View>
                     <Image source={randomImage()} className="w-[154px] h-[150px]" />
                     <Text className={`${colors.heading} text-base font-bold`}>{item.place}</Text>
